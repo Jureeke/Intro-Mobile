@@ -1,14 +1,18 @@
 //import 'package:english_words/english_words.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'map.dart';
 
 
 
-void main() {
-  runApp(MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(const MyApp());
 }
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -40,6 +44,26 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
+
+  Future<void> checkUserByEmail(String email, String password) async {
+  try {
+    CollectionReference users = FirebaseFirestore.instance.collection('users');
+    QuerySnapshot existingUsers = await users.where('email', isEqualTo: email).get();
+
+    if (existingUsers.size > 0) {
+      DocumentSnapshot userDocument = existingUsers.docs.first;
+      String storedPlate = userDocument['plate'];
+      String storedPassword = userDocument['password'];
+
+      if (storedPassword == password) {
+         // ignore: use_build_context_synchronously
+         Navigator.push(context,MaterialPageRoute(builder: (context) => MapPage(plate: storedPlate)));
+      }
+    }
+  } catch (error) {
+    print('Error checking user: $error');
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -93,9 +117,9 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(height: 40),
             Center(
               child: ElevatedButton(
-                onPressed: () {Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => MapPage()),
-                );},
+                onPressed: () {
+                  checkUserByEmail(emailController.value.text,passwordController.value.text);
+                },
                 child: Text('LOGIN'),
               ),
             ),
@@ -123,6 +147,32 @@ class _RegistrationPageState extends State<RegistrationPage> {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   TextEditingController plateNumberController = TextEditingController();
+
+Future<void> addUser(String email, String password, String plate) async {
+  try {
+    if (email.isEmpty || password.isEmpty || plate.isEmpty) {
+      throw Exception('One or more required fields are empty');
+    }
+
+    CollectionReference users = FirebaseFirestore.instance.collection('users');
+    QuerySnapshot existingUsers = await users.where('email', isEqualTo: email).get();
+
+    if (existingUsers.size > 0) {
+      throw Exception('User with email $email already exists');
+    }
+
+    DocumentReference newUser = await users.add({
+      'email': email,
+      'password': password,
+      'plate': plate
+    });
+    print("user succesfully added");
+
+  } catch (error) {
+    print('Error adding user: $error');
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -165,6 +215,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
               ElevatedButton(
                 onPressed: () {
                   // Do registration logic here
+                  addUser(emailController.value.text, passwordController.value.text, plateNumberController.value.text);
+                  Navigator.push(context,MaterialPageRoute(builder: (context) => LoginPage()));
                 },
                 child: Text('REGISTER'),
               ),
@@ -174,22 +226,19 @@ class _RegistrationPageState extends State<RegistrationPage> {
       ),
     );
   }
-}
+} 
 
-class MapPage extends StatefulWidget {
-  @override
-  _MapPageState createState() => _MapPageState();
-}
+class MapPage extends StatelessWidget { 
+  final String plate;
+  MapPage({required this.plate});
 
-class _MapPageState extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Map Page'),
-      ),
-      body: Center(
-        child: ElevatedButton(
+        title: Text("Plate: " + plate),
+        actions: <Widget>[
+          ElevatedButton(
           onPressed: () {
             Navigator.push(
               context,
@@ -197,8 +246,30 @@ class _MapPageState extends State<MapPage> {
             );
           },
           child: Text('logout'),
-        ),
+        )]
       ),
-    );
+      body: Map(location: LatLng(51.2298087, 4.4158815))
+      );
   }
 }
+
+/**
+ *          voor het schrijven naar database
+ *          CollectionReference users = FirebaseFirestore.instance.collection('users');
+
+            DocumentReference newUser = await users.add({
+                  'email': "testemail",
+                  'password': "testpassword"
+                  'plate': "123-bel"
+            });
+
+            voor het ophalen van database
+            
+            CollectionReference users2 = FirebaseFirestore.instance.collection('users');
+            QuerySnapshot existingUsers = await users.where('email', isEqualTo: "testemail").get();
+            if (existingUsers.size > 0) {
+              DocumentSnapshot userDocument = existingUsers.docs.first;
+              String storedPassword = userDocument['password'];
+              print(userDocument.toString() + storedPassword);
+            }
+ */

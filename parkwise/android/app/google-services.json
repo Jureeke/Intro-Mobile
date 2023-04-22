@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "534061309877",
+    "project_id": "parkwise-d55e8",
+    "storage_bucket": "parkwise-d55e8.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:534061309877:android:14ca82bc1238ddd18e03fc",
+        "android_client_info": {
+          "package_name": "com.project.parkwise"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "534061309877-c7qcl14u5upu0vf3cjee71smmd2d4nke.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQO1tHOqjESBqDV1oHWBLZKIBpzja33E0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "534061309877-c7qcl14u5upu0vf3cjee71smmd2d4nke.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

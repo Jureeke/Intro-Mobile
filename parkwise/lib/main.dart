@@ -1,12 +1,24 @@
-//import 'package:english_words/english_words.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'map.dart';
 
 
+
+/*
+  TODO:
+  - use cars instead of plate
+  - add change password
+  - add a logout popup
+  - put markers in database 
+  * change hardcoded location to current location 
+  - add encrytion to password and plate
+  - add a field to marker that records the car that's parked there
+  - make a option so that you can add more cars to your account, dropdown field
+  - change the lookup method to database id instead of e-mail
+  * add a timeslot 
+*/
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +33,7 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => MyAppState(),
       child: MaterialApp(
-        title: 'Namer App',
+        title: 'ParkWise App',
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
@@ -72,13 +84,13 @@ class _LoginPageState extends State<LoginPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SizedBox(height: 80),
+            SizedBox(height: 40),
                Padding(
               padding: EdgeInsets.symmetric(horizontal: 30),
               child: Image.asset(
                 'assets/logo.png',
-                width: 150,
-                height: 150,
+                width: 225,
+                height: 225,
               ),
             ),
             Padding(
@@ -146,11 +158,14 @@ class RegistrationPage extends StatefulWidget {
 class _RegistrationPageState extends State<RegistrationPage> {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
-  TextEditingController plateNumberController = TextEditingController();
 
-Future<void> addUser(String email, String password, String plate) async {
+  TextEditingController brandController = TextEditingController();
+  TextEditingController plateController = TextEditingController();
+  TextEditingController nameController = TextEditingController();
+
+Future<void> addUser(String email, String password, String brand, String plate, String name) async {
   try {
-    if (email.isEmpty || password.isEmpty || plate.isEmpty) {
+    if (email.isEmpty || password.isEmpty || brand.isEmpty || plate.isEmpty || name.isEmpty) {
       throw Exception('One or more required fields are empty');
     }
 
@@ -186,6 +201,7 @@ Future<void> addUser(String email, String password, String plate) async {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
+              Text("login"),
               SizedBox(height: 20.0),
               TextFormField(
                 controller: emailController,
@@ -204,10 +220,28 @@ Future<void> addUser(String email, String password, String plate) async {
                 ),
               ),
               SizedBox(height: 20.0),
+              Text("car"),
+              SizedBox(height: 20.0),
               TextFormField(
-                controller: plateNumberController,
+                controller: brandController,
                 decoration: InputDecoration(
-                  labelText: 'Plate Number',
+                  labelText: 'Brand',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 20.0),
+              TextFormField(
+                controller: plateController,
+                decoration: InputDecoration(
+                  labelText: 'plate',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 20.0),
+              TextFormField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: 'name',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -215,7 +249,13 @@ Future<void> addUser(String email, String password, String plate) async {
               ElevatedButton(
                 onPressed: () {
                   // Do registration logic here
-                  addUser(emailController.value.text, passwordController.value.text, plateNumberController.value.text);
+                  String email = emailController.value.text;
+                  String password = passwordController.value.text;
+                  String brand = brandController.value.text;
+                  String plate = plateController.value.text;
+                  String name = nameController.value.text;
+
+                  addUser(email, password, brand, plate, name );
                   Navigator.push(context,MaterialPageRoute(builder: (context) => LoginPage()));
                 },
                 child: Text('REGISTER'),
@@ -246,9 +286,10 @@ class MapPage extends StatelessWidget {
             );
           },
           child: Text('logout'),
-        )]
+        ),
+        ]
       ),
-      body: Map(location: LatLng(51.2298087, 4.4158815))
+      body: Map()
       );
   }
 }
@@ -272,4 +313,19 @@ class MapPage extends StatelessWidget {
               String storedPassword = userDocument['password'];
               print(userDocument.toString() + storedPassword);
             }
+
+            ENCRYPTION
+
+            import 'package:encrypt/encrypt.dart';
+
+            final plainText = 'my secret message';
+            final key = Key.fromLength(32);
+            final iv = IV.fromLength(16);
+
+            final encrypter = Encrypter(AES(key));
+
+            final encrypted = encrypter.encrypt(plainText, iv: iv);
+
+            print(encrypted.base64);
+
  */

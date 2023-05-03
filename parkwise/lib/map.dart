@@ -9,25 +9,43 @@ class Map extends StatefulWidget {
 }
 
 class _Map extends State<Map> {
+
   final LatLng location = LatLng(51.2298087, 4.4158815);
 
-  List<LatLng> markerLocations = [
-    LatLng(51.2298087, 4.4158),
-    LatLng(51.2298087, 4.4156),    
-    LatLng(51.2298087, 4.4160),    
-    LatLng(51.2298087, 4.4165),  
-    ];
+  Future<DocumentSnapshot?> getmarkers() async {
+    try {
+      CollectionReference markers = FirebaseFirestore.instance.collection('markers');
+      QuerySnapshot allMarkers = await markers.get();
 
+      for (var marker in allMarkers.docs) {
+        GeoPoint data = marker['location'];
+        LatLng newMarker = LatLng(data.latitude, data.longitude);
+        markerLocations.add(newMarker);
+      }
+    } catch (error) 
+    {
+      print('Error checking marker: $error');
+      return null;
+    }
+  }
+
+  List<LatLng> markerLocations = [];
   List<Marker> markers = [];
-    List<bool> markerReserved = List.generate(4, (index) => false); // Initialize the markerReserved list with false values
+  List<bool> markerReserved = List.generate(4, (index) => false); // Initialize the markerReserved list with false values
 
   // Variable to track the color of the marker
   Color _markerColor = Colors.green;
 
+  @override
+  void initState() {
+    super.initState();
+    getmarkers();
+  }
+
   @override 
   Widget build(BuildContext context) {
     for (int i = 0; i < markerLocations.length; i++) {
-      markers.add(
+          markers.add(
         Marker(
           width: 80.0,
           height: 80.0,
@@ -99,7 +117,6 @@ class _Map extends State<Map> {
         ),
       );
     }
-
     return Scaffold(
       body: FlutterMap(
         options: MapOptions(

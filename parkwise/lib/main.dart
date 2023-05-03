@@ -1,23 +1,30 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'map.dart';
 
+import 'package:crypto/crypto.dart';
+
 
 
 /*
   TODO:
-  - use cars instead of plate
-  - add change password
-  - add a logout popup
-  - put markers in database 
-  * change hardcoded location to current location 
-  - add encrytion to password and plate
-  - add a field to marker that records the car that's parked there
-  - make a option so that you can add more cars to your account, dropdown field
-  - change the lookup method to database id instead of e-mail
-  * add a timeslot 
+  D use cars instead of plate
+  D add change password
+  D add a logout popup
+  D put markers in database 
+  E change hardcoded location to current location 
+  - add encrytion to password
+  D add a field to marker that records the car that's parked there
+  - make a option so that you can add more cars to your account
+  D dropdown field
+  ? change the lookup method to database id instead of e-mail
+  E add a timeslot 
+
+  - add that car is written to databasefield in marker so that when loading in on other account it is checked if the car is empty on marker
 */
 
 Future<void> main() async {
@@ -57,27 +64,71 @@ class _LoginPageState extends State<LoginPage> {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
 
-  Future<void> checkUserByEmail(String email, String password) async {
-  try {
-    CollectionReference users = FirebaseFirestore.instance.collection('users');
-    QuerySnapshot existingUsers = await users.where('email', isEqualTo: email).get();
+  Future<DocumentSnapshot?> checkUserByEmail(String email, String password) async {
+    try {
+      CollectionReference users = FirebaseFirestore.instance.collection('users');
+      QuerySnapshot allUsers = await users.get();
 
-    if (existingUsers.size > 0) {
-      DocumentSnapshot userDocument = existingUsers.docs.first;
-      String storedPlate = userDocument['plate'];
-      String storedPassword = userDocument['password'];
+      for (DocumentSnapshot user in allUsers.docs) {
+        String storedEmail = user['email'];
+        String storedPassword = user['password'];
 
-      if (storedPassword == password) {
-         // ignore: use_build_context_synchronously
-         Navigator.push(context,MaterialPageRoute(builder: (context) => MapPage(plate: storedPlate)));
+        if (storedEmail == email && storedPassword == password) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MapPage(),
+            ),
+          );
+        } else 
+        {
+          // show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Invalid email or password')),
+          );
+        }
       }
+      // No user found with matching email and password
+      return null;
+    } catch (error) {
+      print('Error checking user: $error');
+      return null;
+    }
+  }
+
+  Future<void> changePassword(String email, String currentPassword, String newPassword) async {
+  try {
+    final users = FirebaseFirestore.instance.collection('users');
+    final snapshot = await users.where('email', isEqualTo: email).get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final userDoc = snapshot.docs.first;
+      final storedPassword = userDoc['password'];
+
+      if (storedPassword == currentPassword) {
+        await users.doc(userDoc.id).update({'password': newPassword});
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Password changed successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Incorrect current password')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User not found')),
+      );
     }
   } catch (error) {
-    print('Error checking user: $error');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('An error occurred: $error')),
+    );
   }
 }
 
-  @override
+  @override 
   Widget build(BuildContext context) {
     return Scaffold(
       body: SingleChildScrollView(
@@ -142,8 +193,72 @@ class _LoginPageState extends State<LoginPage> {
                 );
               },
               child: Text('register'),
-)
+            
+            ),
+            ElevatedButton(
+  onPressed: () {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String email = "";
+        String password = "";
+        String oldPassword = "";
+
+        return AlertDialog(
+          title: Text('Change Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                ),
+                onChanged: (value) {
+                  email = value;
+                },
+              ),
+              TextFormField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'old Password',
+                ),
+                onChanged: (value) {
+                  oldPassword = value;
+                },
+              ),
+              TextFormField(
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'New Password',
+                ),
+                onChanged: (value) {
+                  password = value;
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Call function to change password with email and password variables
+                // Example: await FirebaseAuth.instance.currentUser.updatePassword(password);
+                changePassword(email, oldPassword, password);
+                Navigator.pop(context);
+              },
+              child: Text('Change Password'),
+            ),
           ],
+        );
+      },
+    );
+  },
+  child: Text('Change Password'),
+),
+            ],
         ),
       ),
     );
@@ -163,9 +278,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
   TextEditingController plateController = TextEditingController();
   TextEditingController nameController = TextEditingController();
 
-Future<void> addUser(String email, String password, String brand, String plate, String name) async {
+Future<void> addUser(String email, String password, String brand, String name) async {
   try {
-    if (email.isEmpty || password.isEmpty || brand.isEmpty || plate.isEmpty || name.isEmpty) {
+    if (email.isEmpty || password.isEmpty || brand.isEmpty || name.isEmpty) {
       throw Exception('One or more required fields are empty');
     }
 
@@ -176,10 +291,18 @@ Future<void> addUser(String email, String password, String brand, String plate, 
       throw Exception('User with email $email already exists');
     }
 
+    var data = utf8.encode(password); // data being hashed
+    var hashvalue = sha1.convert(data);
+
+    print("SHA1 hashvalue: ${hashvalue.toString()}");
+
+
     DocumentReference newUser = await users.add({
       'email': email,
       'password': password,
-      'plate': plate
+        'cars': [
+          {'brand': brand, 'name': name},
+  ]
     });
     print("user succesfully added");
 
@@ -230,14 +353,7 @@ Future<void> addUser(String email, String password, String brand, String plate, 
                 ),
               ),
               SizedBox(height: 20.0),
-              TextFormField(
-                controller: plateController,
-                decoration: InputDecoration(
-                  labelText: 'plate',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              SizedBox(height: 20.0),
+
               TextFormField(
                 controller: nameController,
                 decoration: InputDecoration(
@@ -252,10 +368,9 @@ Future<void> addUser(String email, String password, String brand, String plate, 
                   String email = emailController.value.text;
                   String password = passwordController.value.text;
                   String brand = brandController.value.text;
-                  String plate = plateController.value.text;
                   String name = nameController.value.text;
 
-                  addUser(email, password, brand, plate, name );
+                  addUser(email, password, brand, name );
                   Navigator.push(context,MaterialPageRoute(builder: (context) => LoginPage()));
                 },
                 child: Text('REGISTER'),
@@ -268,31 +383,81 @@ Future<void> addUser(String email, String password, String brand, String plate, 
   }
 } 
 
-class MapPage extends StatelessWidget { 
-  final String plate;
-  MapPage({required this.plate});
+class MapPage extends StatefulWidget {
+  @override
+  _MapPageState createState() => _MapPageState();
+}
+
+class _MapPageState extends State<MapPage> {
+  final List<String> items = ['Item 1', 'Item 2', 'Item 3'];
+  String selectedItem = 'Item 1';
+
+  TextEditingController _LatController = TextEditingController();
+  TextEditingController _LonController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Plate: " + plate),
+        automaticallyImplyLeading: false,
         actions: <Widget>[
           ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => LoginPage()),
-            );
-          },
-          child: Text('logout'),
-        ),
-        ]
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text('Confirm Logout'),
+                  content: Text('Are you sure you want to logout?'),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, 'Cancel'),
+                      child: Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        // perform logout action
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => LoginPage()));
+                      },
+                      child: Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: Text('logout'),
+          ),
+          PopupMenuButton<String>(
+
+            onSelected: (value) {
+              setState(() {
+                selectedItem = value;
+              });
+            },
+            itemBuilder: (BuildContext context) {
+              return items.map((String item) {
+                return PopupMenuItem<String>(
+                  value: item,
+                  child: Text(item),
+                );
+              }).toList();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  Text(selectedItem),
+                  Icon(Icons.arrow_drop_down),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
-      body: Map()
-      );
+      body: Map(),
+    );
   }
 }
+
 
 /**
  *          voor het schrijven naar database

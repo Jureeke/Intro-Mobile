@@ -19,6 +19,7 @@ dependencies:
   latlong2: ^0.8.1
   geolocator: ^7.6.2
   encrypt: ^5.0.1
+  crypto: ^3.0.2
   
 
 dev_dependencies:

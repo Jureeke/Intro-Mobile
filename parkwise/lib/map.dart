@@ -7,20 +7,18 @@ import 'package:location/location.dart';
 
 class Map2 extends StatefulWidget {
   @override
-  _MapPage createState() => _MapPage();
+  _Map2 createState() => _Map2();
 
   final String currentCar;
+  
   Map2({required this.currentCar});
 }
 
-class _MapPage extends State<Map2> {
+class _Map2 extends State<Map2> {
   MapController mapController = MapController();
   LatLng currentLocation = LatLng(0, 0);
-
   List<Marker> markers = [];
   List<MarkerInfo> markerReserved = []; 
-
-  Color _markerColor = Colors.green;
 
   late String currentCar;
 
@@ -30,7 +28,7 @@ class _MapPage extends State<Map2> {
   void initState() {
     super.initState();
     currentCar = widget.currentCar;
-
+    print(currentCar);
     _getCurrentLocation();
     _getAllMarkers();
   }

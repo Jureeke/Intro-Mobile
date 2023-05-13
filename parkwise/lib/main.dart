@@ -1,30 +1,16 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'map.dart';
 
-import 'package:crypto/crypto.dart';
 
 
 
 /*
   TODO:
-  D use cars instead of plate
-  D add change password
-  D add a logout popup
-  D put markers in database 
-  E change hardcoded location to current location 
   - add encrytion to password
-  D add a field to marker that records the car that's parked there
-  - make a option so that you can add more cars to your account
-  D dropdown field
-  ? change the lookup method to database id instead of e-mail
-  E add a timeslot 
-
-  - add that car is written to databasefield in marker so that when loading in on other account it is checked if the car is empty on marker
+  - add time
 */
 
 Future<void> main() async {
@@ -61,40 +47,43 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  TextEditingController emailController = TextEditingController();
+  TextEditingController usernameController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
 
-  Future<DocumentSnapshot?> checkUserByEmail(String email, String password) async {
-    try {
-      CollectionReference users = FirebaseFirestore.instance.collection('users');
-      QuerySnapshot allUsers = await users.get();
+Future<DocumentSnapshot?> checkUserById(String userId, String password) async {
+  try {
+    DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(userId);
+    DocumentSnapshot userSnapshot = await userRef.get();
 
-      for (DocumentSnapshot user in allUsers.docs) {
-        String storedEmail = user['email'];
-        String storedPassword = user['password'];
-
-        if (storedEmail == email && storedPassword == password) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MapPage(),
-            ),
-          );
-        } else 
-        {
-          // show error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Invalid email or password')),
-          );
-        }
+    if (userSnapshot.exists) {
+      String storedPassword = userSnapshot.get('password');
+      if (storedPassword == password) {
+        // Passwords match, navigate to MapPage
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MapPage(userId: userId),
+          ),
+        );
+      } else {
+        // Passwords don't match, show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid password')),
+        );
       }
-      // No user found with matching email and password
-      return null;
-    } catch (error) {
-      print('Error checking user: $error');
+      return userSnapshot;
+    } else {
+      // User not found, show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User not found')),
+      );
       return null;
     }
+  } catch (error) {
+    print('Error checking user: $error');
+    return null;
   }
+}
 
   Future<void> changePassword(String email, String currentPassword, String newPassword) async {
   try {
@@ -158,9 +147,9 @@ class _LoginPageState extends State<LoginPage> {
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 30),
               child: TextFormField(
-                controller: emailController,
+                controller: usernameController,
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'Username',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -181,7 +170,7 @@ class _LoginPageState extends State<LoginPage> {
             Center(
               child: ElevatedButton(
                 onPressed: () {
-                  checkUserByEmail(emailController.value.text,passwordController.value.text);
+                  checkUserById(usernameController.value.text,passwordController.value.text);
                 },
                 child: Text('LOGIN'),
               ),
@@ -271,38 +260,34 @@ class RegistrationPage extends StatefulWidget {
 }
 
 class _RegistrationPageState extends State<RegistrationPage> {
-  TextEditingController emailController = TextEditingController();
+  TextEditingController userNameController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
 
   TextEditingController brandController = TextEditingController();
   TextEditingController plateController = TextEditingController();
   TextEditingController nameController = TextEditingController();
 
-Future<void> addUser(String email, String password, String brand, String name) async {
+Future<void> addUser(String username, String password, String brand, String name) async {
   try {
-    if (email.isEmpty || password.isEmpty || brand.isEmpty || name.isEmpty) {
+    if (username.isEmpty || password.isEmpty || brand.isEmpty || name.isEmpty) {
       throw Exception('One or more required fields are empty');
     }
 
     CollectionReference users = FirebaseFirestore.instance.collection('users');
-    QuerySnapshot existingUsers = await users.where('email', isEqualTo: email).get();
+    QuerySnapshot existingUsers = await users.where('username', isEqualTo: username).get();
 
     if (existingUsers.size > 0) {
-      throw Exception('User with email $email already exists');
+      throw Exception('User with name $username already exists');
     }
+    
 
-    var data = utf8.encode(password); // data being hashed
-    var hashvalue = sha1.convert(data);
-
-    print("SHA1 hashvalue: ${hashvalue.toString()}");
-
-
-    DocumentReference newUser = await users.add({
-      'email': email,
+    DocumentReference newUser = users.doc(username);
+    await newUser.set({
+      'username': username,
       'password': password,
-        'cars': [
-          {'brand': brand, 'name': name},
-  ]
+      'cars': [
+        {'brand': brand, 'name': name},
+      ]
     });
     print("user succesfully added");
 
@@ -327,9 +312,9 @@ Future<void> addUser(String email, String password, String brand, String name) a
               Text("login"),
               SizedBox(height: 20.0),
               TextFormField(
-                controller: emailController,
+                controller: userNameController,
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'Username',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -365,12 +350,12 @@ Future<void> addUser(String email, String password, String brand, String name) a
               ElevatedButton(
                 onPressed: () {
                   // Do registration logic here
-                  String email = emailController.value.text;
+                  String username = userNameController.value.text;
                   String password = passwordController.value.text;
                   String brand = brandController.value.text;
                   String name = nameController.value.text;
 
-                  addUser(email, password, brand, name );
+                  addUser(username, password, brand, name );
                   Navigator.push(context,MaterialPageRoute(builder: (context) => LoginPage()));
                 },
                 child: Text('REGISTER'),
@@ -386,14 +371,125 @@ Future<void> addUser(String email, String password, String brand, String name) a
 class MapPage extends StatefulWidget {
   @override
   _MapPageState createState() => _MapPageState();
+  
+
+  final String userId;
+  MapPage({required this.userId});
+
 }
 
 class _MapPageState extends State<MapPage> {
-  final List<String> items = ['Item 1', 'Item 2', 'Item 3'];
-  String selectedItem = 'Item 1';
-
   TextEditingController _LatController = TextEditingController();
   TextEditingController _LonController = TextEditingController();
+
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _brandController = TextEditingController();
+
+  late String userId;
+
+  @override
+  void initState() {
+    super.initState();
+    userId = widget.userId;
+    getCars();
+  }
+
+List<String> carNames = [];
+String selectedCar = "";
+
+  void getCars() async { 
+  try {
+    DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(userId);
+    DocumentSnapshot userSnapshot = await userRef.get();
+
+    if (userSnapshot.exists) {
+      carNames.clear();
+
+      List<dynamic> storedCars = userSnapshot.get('cars');
+      for (var car in storedCars) {
+        String carName = 'brand: ${car['brand']}, name: ${car['name']}';
+        carNames.add(carName);
+      }
+      if (carNames.isNotEmpty) {
+        selectedCar = carNames[0]; // Select the first car by default
+      }
+      setState(() {}); // Update the widget tree to show the dropdown
+    } else {
+      // User not found, show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('User not found')),
+      );
+    }
+  } catch (error) {
+    print('Error checking user: $error');
+  }
+}
+
+  void addCar(String brand, String name) async{
+    try {
+        DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(userId);
+        DocumentSnapshot userSnapshot = await userRef.get();
+        List<dynamic> carsList = userSnapshot.get('cars');
+
+        var newCar = <String, String>{
+          'brand': brand,
+          'name': name
+          };
+          carsList.add(newCar);
+        // Update the user document with the new list of cars
+        await userRef.update({'cars': carsList});
+        getCars();
+
+      } catch (error) {
+        print('Error checking user: $error');
+      }
+      }
+
+void _showAddCarDialog() async {
+  await showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Add Car'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                hintText: 'Enter car name',
+              ),
+            ),
+            SizedBox(height: 16),
+            TextFormField(
+              controller: _brandController,
+              decoration: InputDecoration(
+                hintText: 'Enter car brand',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              String name = _nameController.text.trim();
+              String brand = _brandController.text.trim();
+              addCar(brand, name);
+              Navigator.pop(context);
+            },
+            child: Text('Add'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text('Cancel'),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -426,15 +522,21 @@ class _MapPageState extends State<MapPage> {
             },
             child: Text('logout'),
           ),
+          ElevatedButton(
+            onPressed: () {
+              _showAddCarDialog();
+        
+            },
+            child: Text('add car'),
+          ),
           PopupMenuButton<String>(
-
             onSelected: (value) {
               setState(() {
-                selectedItem = value;
+                selectedCar = value;
               });
             },
             itemBuilder: (BuildContext context) {
-              return items.map((String item) {
+              return carNames.map((String item) {
                 return PopupMenuItem<String>(
                   value: item,
                   child: Text(item),
@@ -445,7 +547,7 @@ class _MapPageState extends State<MapPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
                 children: [
-                  Text(selectedItem),
+                  Text(selectedCar),
                   Icon(Icons.arrow_drop_down),
                 ],
               ),
@@ -453,7 +555,7 @@ class _MapPageState extends State<MapPage> {
           ),
         ],
       ),
-      body: Map(),
+       body: Map2(currentCar: selectedCar)
     );
   }
 }

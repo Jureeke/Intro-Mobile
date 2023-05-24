@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:parkwise/encrypt.dart';
 import './loginpage.dart';
 
 class RegistrationPage extends StatefulWidget {
@@ -12,12 +13,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
   TextEditingController passwordController = TextEditingController();
 
   TextEditingController brandController = TextEditingController();
-  TextEditingController plateController = TextEditingController();
-  TextEditingController nameController = TextEditingController();
+  TextEditingController colorController = TextEditingController();
 
-Future<void> addUser(String username, String password, String brand, String name) async {
+Future<void> addUser(String username, String password, String brand, String color) async {
   try {
-    if (username.isEmpty || password.isEmpty || brand.isEmpty || name.isEmpty) {
+    if (username.isEmpty || password.isEmpty || brand.isEmpty || color.isEmpty) {
       throw Exception('One or more required fields are empty');
     }
 
@@ -27,16 +27,19 @@ Future<void> addUser(String username, String password, String brand, String name
     if (existingUsers.size > 0) {
       throw Exception('User with name $username already exists');
     }
-    
 
+
+    
     DocumentReference newUser = users.doc(username);
     await newUser.set({
       'username': username,
-      'password': password,
+      'password': Encrypter.encrypt(password),
       'cars': [
-        {'brand': brand, 'name': name},
+        {'brand': brand, 'color': color},
       ],
-      'rating':''
+      'timesRated':0,
+      'currentRating': 0,
+      'hasReserved': false
     });
     print("user succesfully added");
 
@@ -89,9 +92,9 @@ Future<void> addUser(String username, String password, String brand, String name
               SizedBox(height: 20.0),
 
               TextFormField(
-                controller: nameController,
+                controller: colorController,
                 decoration: InputDecoration(
-                  labelText: 'name',
+                  labelText: 'color',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -102,9 +105,9 @@ Future<void> addUser(String username, String password, String brand, String name
                   String username = userNameController.value.text;
                   String password = passwordController.value.text;
                   String brand = brandController.value.text;
-                  String name = nameController.value.text;
+                  String color = colorController.value.text;
 
-                  addUser(username, password, brand, name );
+                  addUser(username, password, brand, color);
                   Navigator.push(context,MaterialPageRoute(builder: (context) => LoginPage()));
                 },
                 child: Text('REGISTER'),

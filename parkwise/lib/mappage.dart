@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:parkwise/rating.dart';
+import 'package:parkwise/ratingfunctions.dart';
 import './map.dart';
 import 'loginpage.dart';
 
@@ -9,14 +9,13 @@ class MapPage extends StatefulWidget {
   _MapPageState createState() => _MapPageState();
   final String userId;
   MapPage({required this.userId});
-
 }
 
 class _MapPageState extends State<MapPage> {
   TextEditingController _LatController = TextEditingController();
   TextEditingController _LonController = TextEditingController();
 
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _colorController = TextEditingController();
   final TextEditingController _brandController = TextEditingController();
 
   late String userId;
@@ -26,6 +25,7 @@ class _MapPageState extends State<MapPage> {
     super.initState();
     userId = widget.userId;
     getCars();
+    RatingFunctions.showRating(userId);
   }
 
   List<String> carNames = [];
@@ -41,15 +41,14 @@ class _MapPageState extends State<MapPage> {
 
       List<dynamic> storedCars = userSnapshot.get('cars');
       for (var car in storedCars) {
-        String carName = 'brand: ${car['brand']}, name: ${car['name']}';
+        String carName = '${car['brand']} ${car['color']}';
         carNames.add(carName);
       }
       if (carNames.isNotEmpty) {
         selectedCar = carNames[0]; // Select the first car by default
       }
-      setState(() {}); // Update the widget tree to show the dropdown
+      setState(() {});
     } else {
-      // User not found, show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('User not found')),
       );
@@ -60,7 +59,7 @@ class _MapPageState extends State<MapPage> {
   }
 }
 
-  void addCar(String brand, String name) async{
+  void addCar(String brand, String color) async{
     try {
         DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(userId);
         DocumentSnapshot userSnapshot = await userRef.get();
@@ -68,7 +67,7 @@ class _MapPageState extends State<MapPage> {
 
         var newCar = <String, String>{
           'brand': brand,
-          'name': name
+          'color': color
           };
           carsList.add(newCar);
         // Update the user document with the new list of cars
@@ -80,7 +79,33 @@ class _MapPageState extends State<MapPage> {
       }
       }
 
-void _showAddCarDialog() async {
+  void deleteCar(String carName) async {
+  try {
+    DocumentReference userRef =
+        FirebaseFirestore.instance.collection('users').doc(userId);
+    DocumentSnapshot userSnapshot = await userRef.get();
+    List<dynamic> carsList = userSnapshot.get('cars');
+
+    // Find the car to be deleted by its name
+    for (var car in carsList) {
+      String carBrand = car['brand'];
+      String carColor = car['color'];
+      String fullName = '$carBrand $carColor';
+      if (fullName == carName) {
+        carsList.remove(car);
+        break;
+      }
+    }
+
+    // Update the user document with the modified list of cars
+    await userRef.update({'cars': carsList});
+    getCars();
+  } catch (error) {
+    print('Error deleting car: $error');
+  }
+}
+
+  void _showAddCarDialog() async {
   await showDialog(
     context: context,
     builder: (BuildContext context) {
@@ -90,9 +115,9 @@ void _showAddCarDialog() async {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextFormField(
-              controller: _nameController,
+              controller: _colorController,
               decoration: InputDecoration(
-                hintText: 'Enter car name',
+                hintText: 'Enter car color',
               ),
             ),
             SizedBox(height: 16),
@@ -107,9 +132,9 @@ void _showAddCarDialog() async {
         actions: [
           ElevatedButton(
             onPressed: () {
-              String name = _nameController.text.trim();
+              String color = _colorController.text.trim();
               String brand = _brandController.text.trim();
-              addCar(brand, name);
+              addCar(brand, color);
               Navigator.pop(context);
             },
             child: Text('Add'),
@@ -126,12 +151,40 @@ void _showAddCarDialog() async {
   );
 }
 
+  void _showDeleteCarDialog(String carName) async {
+  await showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Confirm Delete'),
+        content: Text('Are you sure you want to delete this car?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              deleteCar(carName);
+              Navigator.pop(context);
+            },
+            child: Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         actions: <Widget>[
+          Text('Rating: ${RatingFunctions.ratingShow}'),
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () {
@@ -165,7 +218,6 @@ void _showAddCarDialog() async {
         
             }
           ),
-          RatingWidget(userId: userId),
           ElevatedButton(
             onPressed: () {
               showDialog(
@@ -177,11 +229,11 @@ void _showAddCarDialog() async {
                         if (selectedCar == "") {
                           String selectedCar = carNames.first;
                         }
-
                         return PopupMenuButton<String>(
                           onSelected: (value) {
                             setState(() {
                               selectedCar = value;
+
                             });
                           },
                           itemBuilder: (BuildContext context) {
@@ -208,12 +260,17 @@ void _showAddCarDialog() async {
                 },
               );
             },
-            child: Text('Select a Car'),
-          ),
-          
+            child: Text('choose Car'),
+          ),  
+          ElevatedButton(
+          onPressed: () {
+            _showDeleteCarDialog(selectedCar);
+          },
+          child: Text('Delete Car'),
+),
         ],
       ),
-       body: Map2(currentCar: selectedCar)
+       body: Map2(currentCar: selectedCar, userId: userId,)
     );
   }
 }

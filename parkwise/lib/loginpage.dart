@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:parkwise/encrypt.dart';
 import './mappage.dart';
 import 'registerpage.dart';
 
@@ -19,7 +20,7 @@ Future<DocumentSnapshot?> checkUserById(String userId, String password) async {
 
     if (userSnapshot.exists) {
       String storedPassword = userSnapshot.get('password');
-      if (storedPassword == password) {
+      if (storedPassword == Encrypter.encrypt(password)) {
         // Passwords match, navigate to MapPage
         Navigator.push(
           context,
@@ -47,17 +48,17 @@ Future<DocumentSnapshot?> checkUserById(String userId, String password) async {
   }
 }
 
-  Future<void> changePassword(String email, String currentPassword, String newPassword) async {
+  Future<void> changePassword(String username, String currentPassword, String newPassword) async {
   try {
     final users = FirebaseFirestore.instance.collection('users');
-    final snapshot = await users.where('email', isEqualTo: email).get();
+    final snapshot = await users.where('username', isEqualTo: username).get();
 
     if (snapshot.docs.isNotEmpty) {
       final userDoc = snapshot.docs.first;
       final storedPassword = userDoc['password'];
 
-      if (storedPassword == currentPassword) {
-        await users.doc(userDoc.id).update({'password': newPassword});
+      if (storedPassword == Encrypter.encrypt(currentPassword)) {
+        await users.doc(userDoc.id).update({'password': Encrypter.encrypt(newPassword)});
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Password changed successfully')),
@@ -151,7 +152,7 @@ Future<DocumentSnapshot?> checkUserById(String userId, String password) async {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        String email = "";
+        String username = "";
         String password = "";
         String oldPassword = "";
 
@@ -162,16 +163,16 @@ Future<DocumentSnapshot?> checkUserById(String userId, String password) async {
             children: [
               TextFormField(
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'Username',
                 ),
                 onChanged: (value) {
-                  email = value;
+                  username = value;
                 },
               ),
               TextFormField(
                 obscureText: true,
                 decoration: InputDecoration(
-                  labelText: 'old Password',
+                  labelText: 'Old Password',
                 ),
                 onChanged: (value) {
                   oldPassword = value;
@@ -195,9 +196,7 @@ Future<DocumentSnapshot?> checkUserById(String userId, String password) async {
             ),
             ElevatedButton(
               onPressed: () async {
-                // Call function to change password with email and password variables
-                // Example: await FirebaseAuth.instance.currentUser.updatePassword(password);
-                changePassword(email, oldPassword, password);
+                changePassword(username, oldPassword, password);
                 Navigator.pop(context);
               },
               child: Text('Change Password'),
